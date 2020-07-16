@@ -1,59 +1,37 @@
 import { Router } from 'express';
 import { getCustomRepository, getRepository } from 'typeorm';
+import multer from "multer";
+
+import Category from '../models/Category';
 
 import TransactionsRepository from '../repositories/TransactionsRepository';
 
 import CreateTransactionService from '../services/CreateTransactionService';
-import Category from '../models/Category';
-// import DeleteTransactionService from '../services/DeleteTransactionService';
-// import ImportTransactionsService from '../services/ImportTransactionsService';
+import DeleteTransactionService from '../services/DeleteTransactionService';
+import ImportTransactionsService from '../services/ImportTransactionsService';
+
+import uploadConfig from "../config/upload";
+
+const upload = multer(uploadConfig)
 
 const transactionsRouter = Router();
-const createTransactionService = new CreateTransactionService();
 
 transactionsRouter.get('/', async (request, response) => {
   const transactionsRepository = getCustomRepository(TransactionsRepository);
-  const categoriesRepository = getRepository(Category);
+
   const transactions = await transactionsRepository.find();
-
-  const transactionsList = await Promise.all(
-    transactions.map(
-      async ({
-        id,
-        type,
-        value,
-        title,
-        category_id,
-        created_at,
-        updated_at,
-      }) => {
-        const category = await categoriesRepository.findOne(category_id);
-
-        const transaction = {
-          id,
-          title,
-          value,
-          type,
-          category,
-          created_at,
-          updated_at,
-        };
-
-        return transaction;
-      },
-    ),
-  );
-
-  const balance = await transactionsRepository.getBalance(transactions);
+  const balance = await transactionsRepository.getBalance();
 
   return response.json({
-    transactions: transactionsList,
+    transactions,
     balance,
   });
 });
 
 transactionsRouter.post('/', async (request, response) => {
   const { title, value, type, category } = request.body;
+
+  const createTransactionService = new CreateTransactionService();
 
   const transaction = await createTransactionService.execute({
     title,
@@ -66,11 +44,23 @@ transactionsRouter.post('/', async (request, response) => {
 });
 
 transactionsRouter.delete('/:id', async (request, response) => {
-  return response.json({ ok: true });
+  const { id } = request.params
+
+  const deleteTransactionService = new DeleteTransactionService()
+
+  await deleteTransactionService.execute(id)
+
+  return response.sendStatus(200);
 });
 
-transactionsRouter.post('/import', async (request, response) => {
-  return response.json({ ok: true });
+transactionsRouter.post('/import', upload.single('file'), async (request, response) => {
+  const { path } = request.file
+
+  const importTransactionsService = new ImportTransactionsService()
+
+  const transactions = await importTransactionsService.execute(path)
+
+  return response.json(transactions);
 });
 
 export default transactionsRouter;
