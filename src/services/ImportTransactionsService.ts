@@ -77,12 +77,15 @@ class ImportTransactionsService {
 
     const finalCategories = [...existentCategories, ...newCategories]
 
+    console.log(finalCategories);
+
+
     const createdTransactions = transactionsRepository.create(
       transactions.map(transaction => ({
         title: transaction.title,
         type: transaction.type,
         value: transaction.value,
-        category: finalCategories.find(category => category.title === transaction.title)
+        category: finalCategories.find(category => category.title === transaction.category)
       }))
     )
 
